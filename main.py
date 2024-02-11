@@ -12,7 +12,7 @@ logger = logging.getLogger()
 
 # Constants
 TARGET_IP = "127.0.0.1"  # Placeholder IP, will be replaced with user input
-PORT_RANGE = (130, 140)
+PORT_RANGE = (0, 1024)
 TIMEOUT = 0.5
 SPINNER = ['|', '/', '-', '\\']
 SPINNER_INTERVAL = 0.1  # Spinner update interval in seconds
@@ -23,19 +23,24 @@ closed_ports = []  # Track closed ports if needed
 
 # Global variable to control the spinner thread
 spinner_active = False
+current_port = None  # Holds the current port being scanned
+port_status = "closed"
 
 
 def spinner():
     """
-    Spinner function to run in a separate thread.
+    Spinner function that runs in a separate thread and displays the current port.
     """
     spinner_chars = ['|', '/', '-', '\\']
+    idx = 0  # Spinner index
     while spinner_active:
-        for char in spinner_chars:
-            sys.stdout.write(f'\r{char} Scanning...')
-            sys.stdout.flush()
-            time.sleep(SPINNER_INTERVAL)
-    sys.stdout.write('\rDone scanning.        \n')  # Clear the spinner line
+        current = current_port if current_port is not None else "Starting"
+        sys.stdout.write(f'\r{spinner_chars[idx % len(spinner_chars)]} Scanning port {current}... {port_status}')
+        sys.stdout.flush()
+        time.sleep(SPINNER_INTERVAL)
+        idx += 1
+    # Clean up line when done
+    sys.stdout.write('\rScan complete.                \n')
 
 
 def print_spinner_and_status(port, status):
@@ -77,6 +82,8 @@ def scan_port(ip, port):
     """
     Sends a SYN packet to a specific port on the target IP and checks for a response.
     """
+    global current_port  # Declare as global to modify it
+    current_port = port  # Update with the current port being scanned
     src_port = RandShort()
     response = sr1(IP(dst=ip) / TCP(sport=src_port, dport=port, flags="S"), timeout=TIMEOUT, verbose=0)
 
@@ -99,7 +106,7 @@ def scan_port(ip, port):
 
 
 def main():
-    global spinner_active
+    global spinner_active, port_status
     logger.info(f"Starting scan on {TARGET_IP}")
 
     # Start the spinner thread
@@ -108,7 +115,8 @@ def main():
     spinner_thread.start()
 
     for port in range(PORT_RANGE[0], PORT_RANGE[1] + 1):
-        scan_port(TARGET_IP, port)
+        is_open = scan_port(TARGET_IP, port)
+        port_status = "open" if is_open else "closed"
 
     # Stop the spinner and wait for the thread to finish
     spinner_active = False
