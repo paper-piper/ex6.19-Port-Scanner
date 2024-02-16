@@ -126,4 +126,8 @@ def main():
 
 
 if __name__ == "__main__":
+    assert check_tcp_flags(0x12) == "open"
+    assert check_tcp_flags(0x04) == "closed"
+    assert check_tcp_flags(0x01) == "unexpected"
+    assert check_tcp_flags(0x10) == "unexpected"
     main()
